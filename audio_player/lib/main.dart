@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -14,15 +16,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
@@ -48,168 +41,243 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
+class _MyHomePageState extends State<MyHomePage>
+    with SingleTickerProviderStateMixin {
   late AudioPlayer player;
   TextEditingController audioSeconds = TextEditingController();
   int duration = 0;
+
+  String dropdownValue = 'Auto';
+
+  bool _flag = true;
+
+  late Animation<double> _myAnimation;
+  late AnimationController _controller;
+
+  bool isPlaying = false;
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     player = AudioPlayer();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 200),
+    );
+
+    _myAnimation = CurvedAnimation(curve: Curves.linear, parent: _controller);
   }
 
   @override
   void dispose() {
     // TODO: implement dispose
     player.dispose();
+    audioSeconds.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'Current audio duration: $duration seconds',
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Enter audio playing time',
-              style:
-                  TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 100,
-                  height: 40,
-                  child: TextFormField(
-                    controller: audioSeconds,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Select mode: '),
+                  const SizedBox(
+                    width: 40,
                   ),
-                ),
-                const SizedBox(
-                  width: 20,
-                ),
-                ElevatedButton(
-                    onPressed: () {
+                  DropdownButton(
+                    value: dropdownValue,
+                    icon: const Icon(Icons.arrow_downward),
+                    style: const TextStyle(color: Colors.deepPurple),
+                    underline: Container(
+                      height: 2,
+                      color: Colors.deepPurpleAccent,
+                    ),
+                    items: <String>['Auto', 'Manual']
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
                       setState(() {
-                        duration = int.parse(audioSeconds.text);
+                        dropdownValue = newValue!;
                       });
                     },
-                    child: const Text('Set'))
-              ],
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-            const Text('Audio files...'),
-            const SizedBox(
-              height: 4,
-            ),
-            AudioFilesCard(
-              player: player,
-              fileName: 'whiteNoise',
-              audioDuration: duration,
-            ),
-            AudioFilesCard(
-              player: player,
-              fileName: 'CantinaBand3',
-              audioDuration: duration,
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-            StopButton(player: player)
-          ],
+                  )
+                ],
+              ),
+              const SizedBox(
+                height: 40,
+              ),
+              (dropdownValue == "Manual")
+                  ? Column(
+                      children: [
+                        Text(
+                          'Current audio duration: $duration seconds',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Enter audio playing time',
+                          style: TextStyle(
+                              color: Colors.black, fontWeight: FontWeight.bold),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 100,
+                              height: 40,
+                              child: TextFormField(
+                                controller: audioSeconds,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(),
+                              ),
+                            ),
+                            const SizedBox(
+                              width: 20,
+                            ),
+                            ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    duration = int.parse(audioSeconds.text);
+                                  });
+                                },
+                                child: const Text('Set'))
+                          ],
+                        ),
+                      ],
+                    )
+                  : const Text(
+                      'Auto mode selected',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+              const SizedBox(
+                height: 20,
+              ),
+              const Text('Audio files...'),
+              const SizedBox(
+                height: 4,
+              ),
+              AudioFilesCard(
+                // onCardTapped: (bool isPlayingValueCalledBack) {
+                //   isPlaying = isPlayingValueCalledBack;
+                //   print(isPlaying);
+                //   if (isPlaying) {
+                //     _controller.reverse();
+                //   } else {
+                //     player.play();
+                //     _controller.forward();
+                //   }
+                // },
+                player: player,
+                fileName: 'whiteNoise',
+                audioDuration: duration,
+                selectedMode: dropdownValue,
+              ),
+              AudioFilesCard(
+                // onCardTapped: (bool isPlayingValueCalledBack) {
+                //   isPlaying = isPlayingValueCalledBack;
+                //   print(isPlaying);
+                //   if (isPlaying) {
+                //     _controller.reverse();
+                //   } else {
+                //     player.play();
+                //     player.playing;
+                //     _controller.forward();
+                //   }
+                // },
+                player: player,
+                fileName: 'CantinaBand3',
+                audioDuration: duration,
+                selectedMode: dropdownValue,
+              ),
+              const SizedBox(
+                height: 20,
+              ),
+
+              Text(player.duration.toString()),
+
+              const SizedBox(
+                height: 20,
+              ),
+              GestureDetector(
+                onTap: () {
+                  if (player.playing) {
+                    player.pause();
+
+                    setState(() {
+                      isPlaying = false;
+                    });
+                    // _controller.reverse();
+                  } else {
+                    player.play();
+                    setState(() {
+                      isPlaying = true;
+                    });
+                    // _controller.forward();
+                  }
+                  isPlaying = !isPlaying;
+                },
+                child: (player.playing)
+                    ? const Icon(Icons.pause)
+                    : const Icon(Icons.play_arrow),
+                // child: AnimatedIcon(
+                //   progress: _myAnimation,
+                //   icon: AnimatedIcons.play_pause,
+                //   size: 60,
+                // )
+              )
+              //StopButton(player: player)
+            ],
+          ),
         ),
       ),
-
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
 
-class StopButton extends StatelessWidget {
-  const StopButton({
-    Key? key,
-    required this.player,
-  }) : super(key: key);
+typedef isPlayingBoolCallBack = void Function(bool isPlayingCallBack);
 
-  final AudioPlayer player;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-        onTap: () {
-          player.stop();
-        },
-        child: Container(
-          width: 80,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: const Icon(
-            Icons.stop,
-            color: Colors.white,
-          ),
-        ));
-  }
-}
-
-class AudioFilesCard extends StatelessWidget {
-  const AudioFilesCard({
+class AudioFilesCard extends StatefulWidget {
+  AudioFilesCard({
     Key? key,
     required this.player,
     required this.fileName,
     required this.audioDuration,
+    required this.selectedMode,
+    //required this.onCardTapped,
   }) : super(key: key);
+
+  //final isPlayingBoolCallBack onCardTapped;
 
   final AudioPlayer player;
   final String fileName;
   final int audioDuration;
+  final String selectedMode;
+
+  @override
+  State<AudioFilesCard> createState() => _AudioFilesCardState();
+}
+
+class _AudioFilesCardState extends State<AudioFilesCard> {
+  //bool isPlayingFromCard = false;
 
   @override
   Widget build(BuildContext context) {
@@ -217,12 +285,63 @@ class AudioFilesCard extends StatelessWidget {
       padding: const EdgeInsets.all(4.0),
       child: GestureDetector(
         onTap: () async {
-          await player.setAsset('assets/audio_clips/$fileName.wav');
-          await player.setLoopMode(LoopMode.one);
+          final stopwatch = Stopwatch()..start();
 
-          player.play();
-          await Future.delayed(Duration(seconds: audioDuration), () {});
-          player.stop();
+          int prevInt = 10;
+
+          var rng = Random();
+          while (prevInt != 6) {
+            prevInt = rng.nextInt(10);
+            print(prevInt);
+          }
+          stopwatch.stop();
+
+          print(
+              'Value reached from 10 to 6 in ${stopwatch.elapsed.inMilliseconds} ms');
+
+          stopwatch.reset();
+
+          // setState(() {
+          //   isPlayingFromCard = !isPlayingFromCard;
+          //   widget.onCardTapped(isPlayingFromCard);
+          // });
+
+          if (widget.selectedMode == "Manual") {
+            await widget.player
+                .setAsset('assets/audio_clips/${widget.fileName}.wav');
+            await widget.player.setLoopMode(LoopMode.one);
+
+            widget.player.play();
+
+            await Future.delayed(
+                Duration(seconds: widget.audioDuration), () {});
+            widget.player.stop();
+          } else if (widget.selectedMode == "Auto") {
+            autoModePlayAudio(int duration) async {
+              widget.player.play();
+
+              await Future.delayed(Duration(seconds: duration), () {});
+            }
+
+            autoModePauseAudio(int duration) async {
+              widget.player.pause();
+
+              await Future.delayed(Duration(seconds: duration), () {});
+            }
+
+            await widget.player
+                .setAsset('assets/audio_clips/${widget.fileName}.wav');
+            await widget.player.setLoopMode(LoopMode.one);
+
+            await autoModePlayAudio(20);
+            await autoModePauseAudio(10);
+
+            await autoModePlayAudio(20);
+            await autoModePauseAudio(10);
+
+            await autoModePlayAudio(20);
+            widget.player.stop();
+          }
         },
         child: Container(
           height: 50,
@@ -236,7 +355,7 @@ class AudioFilesCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                fileName,
+                widget.fileName,
                 style: const TextStyle(
                     color: Colors.white, fontStyle: FontStyle.italic),
               ),
